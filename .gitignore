@@ -1,0 +1,7 @@
+data/
+dytop/
+results/
+ripser/
+utils/
+__pycache__/
+.DS_Store
