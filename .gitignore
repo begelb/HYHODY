@@ -1,7 +1,7 @@
 data/
 dytop/
 results/
-ripser/
+ripser.py/
 utils/
 __pycache__/
 .DS_Store
