@@ -104,7 +104,7 @@ class Boxes:
         if method == 'persistence':
             heights = self.make_persistence_dict(init_data, next_data)
             # make title
-            plt.title('Heat map of max (finite) barcode length')
+            plt.title('Ratio of second largest to largest finite barcode length')
         else:
             heights = self.get_last_height(init_data, next_data, method)
         # Filter out None values
