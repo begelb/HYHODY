@@ -3,11 +3,236 @@ from scipy.cluster.hierarchy import linkage
 import numpy as np
 import matplotlib.patches as patches
 from ripser import ripser
-from ripser import Rips
+from sklearn.cluster import KMeans
+from sklearn.mixture import GaussianMixture
+from sklearn.metrics import silhouette_score
 
+class Cylinder:
+    def __init__(self, lower_bounds, upper_bounds):
+        self.x_min = lower_bounds[0]
+        self.x_max = upper_bounds[0]
+        self.y_min = lower_bounds[1]
+        self.y_max = upper_bounds[1]
+
+    def cylinder_first_coordinate_distance(self, x0_in, x1_in):
+        x0 = min(x0_in, x1_in)
+        x1 = max(x0_in, x1_in)
+        z = x0 - self.x_min + self.x_max - x1
+        if x1 - x0 <= z:
+            data_wrap_Bool = False
+            return x1 - x0, data_wrap_Bool
+        else:
+            data_wrap_Bool = True
+            return z, data_wrap_Bool
+        
+    def cylinder_euclidean_distance(self, x0, y0, x1, y1):
+        d, data_wrap_Bool = self.cylinder_first_coordinate_distance(x0, x1)
+        return d, np.sqrt(d ** 2 + (y0 - y1) ** 2), data_wrap_Bool
+    
+    def cylinder_distance_matrix(self, data_array):
+        num_points = len(data_array)
+
+        distance_matrix = np.zeros((num_points, num_points))
+        data_wrap_Bool_matrix = np.zeros((num_points, num_points), dtype=bool)
+        x_diff_matrix = np.zeros((num_points, num_points))
+
+        for i in range(num_points):
+            for j in range(i + 1, num_points):
+                x_diff, distance_entry, data_wrap_Bool_entry = self.cylinder_euclidean_distance(data_array[i, 0], data_array[i, 1], data_array[j, 0], data_array[j, 1])
+                distance_matrix[i, j] = distance_entry
+                data_wrap_Bool_matrix[i, j] = data_wrap_Bool_entry
+                x_diff_matrix[i, j] = x_diff
+        return distance_matrix + distance_matrix.T, data_wrap_Bool_matrix, x_diff_matrix
+    
+
+''' Persistence '''  
+def death_time_ratio(data, cylinder):
+    data_array = np.array(data)
+    distance_matrix, wrap_matrix, x_diff_matrix = cylinder.cylinder_distance_matrix(data_array)
+    result = ripser(distance_matrix, maxdim=0, distance_matrix = True)
+    diagram = result['dgms'][0]
+    lengths = [death - birth for birth, death in diagram if death != np.inf]
+    max_num = max(lengths)
+    second_max = lengths[-2]
+
+    return second_max/max_num, wrap_matrix, x_diff_matrix
+
+''' Analyze f(X) to define mv map '''
+
+def get_num_clusters(ratio, discontinuity_threshold):
+    if ratio <= discontinuity_threshold:
+        return 2
+    else:
+        return 1
+    
+def get_2_means_labels(data):
+    kmeans = KMeans(n_clusters=2, n_init='auto')
+    kmeans.fit(data)
+    labels = kmeans.labels_
+    # print('Warning: k-means was done using the Euclidean distance. This will be a bug if there are multiple clusters on the cylinder, and one cluster wraps around.')
+    return labels
+
+
+def SelBest(arr:list, X:int)->list:
+    '''
+    returns the set of X configurations with shorter distance
+    '''
+    dx=np.argsort(arr)[:X]
+    return arr[dx]
+
+def get_Gaussian_mixture_labels(data, n_iterations=8):
+    # clustering is done five times and the best cluster is returned according to the silhouette score
+    best_labels = None
+    for i in range(n_iterations):
+        gmm = GaussianMixture(n_components=2) 
+        labels = gmm.fit_predict(data)
+        sil=silhouette_score(data, labels, metric='euclidean')
+       # print('silhouette score: ', sil)
+        if best_labels is None or sil > best_silhouette:
+            best_labels = labels
+            best_silhouette = sil
+    return best_labels
+
+def get_submatrix(cluster_labels, id, matrix):
+    cluster_indices = np.where(cluster_labels == id)[0]
+    return matrix[np.ix_(cluster_indices, cluster_indices)]
+
+# def get_boundary_distances(x_diff_matrix, data, cylinder):
+#     flattened_matrix = x_diff_matrix.flatten()
+#     max_id = np.argmax(flattened_matrix)
+#     i, j = np.unravel_index(max_id, x_diff_matrix.shape)
+#     x0 = data[i][0]
+#     x1 = data[j][0]
+#     x_small = min(x0, x1)
+#     x_large = max(x0, x1)
+#     print('x_small: ', x_small)
+#     print('x_large: ', x_large)
+#     left_bdry_dist = x_small - cylinder.x_min
+#     right_bdry_dist = cylinder.x_max - x_large
+#     return [left_bdry_dist, right_bdry_dist]
+
+def get_boundary_distances(data, cylinder): # assumes that data is coming from one cluster
+    x_max = np.max(data[:, 0])
+    x_min = np.min(data[:, 0])
+    left_bdry_dist = x_max - cylinder.x_min
+    right_bdry_dist = cylinder.x_max - x_min
+    return [left_bdry_dist, right_bdry_dist]
+
+def get_clusters(data, method):
+    if method == 'kmeans':
+        cluster_labels = get_2_means_labels(data)
+    elif method == 'Gaussian':
+        cluster_labels = get_Gaussian_mixture_labels(data)
+    else:
+        raise NotImplementedError("The choices for method are kmeans or Gaussian")
+    cluster_0 = data[cluster_labels == 0]
+    cluster_1 = data[cluster_labels == 1]
+    clusters = [cluster_0, cluster_1]
+    return clusters, cluster_labels
+
+def get_cluster_data_dicts(data, num_clusters, wrap_matrix, x_diff_matrix, lower_bounds, upper_bounds, method):
+    cylinder = Cylinder(lower_bounds, upper_bounds)
+    if num_clusters == 1:
+        # case when cluster crosses the periodic boundary
+        if np.any(wrap_matrix.flatten()):
+          #  boundary_distance = get_boundary_distances(x_diff_matrix, data, cylinder)
+            clusters, cluster_labels = get_clusters(data, method) # cluster the points on the rectangle using 2-means (Euclidean metric)
+
+            dictionary_list = []
+            for i, cluster in enumerate(clusters):
+               # print('cluster: ', cluster)
+               # cluster_x_diff_matrix = get_submatrix(cluster_labels, id=i, matrix=x_diff_matrix)
+                boundary_distance = get_boundary_distances(cluster, cylinder)
+
+                cluster_dict = {
+                    'cluster_pts' : cluster,
+                    'bdry_dist' : boundary_distance
+                }
+                dictionary_list.append(cluster_dict)
+            return dictionary_list
+        
+        # case when there is one cluster, and it does not cross the periodic boundary
+        else:
+            boundary_distance = None
+            clusters = data
+
+            cluster_dict = {
+                    'cluster_pts' : clusters,
+                    'bdry_dist' : boundary_distance
+                }
+            
+            return [cluster_dict]
+        
+    # two clusters
+    elif num_clusters == 2:
+        clusters, cluster_labels = get_clusters(data, method)
+
+        dictionary_list = []
+        for i, cluster in enumerate(clusters):
+            cluster_wrap_matrix = get_submatrix(cluster_labels, id=i, matrix=wrap_matrix)
+           # cluster_x_diff_matrix = get_submatrix(cluster_labels, id=i, matrix=x_diff_matrix)
+            if np.any(cluster_wrap_matrix.flatten()):
+                boundary_distance = get_boundary_distances(data, cylinder)
+            else:
+                boundary_distance = None
+
+            cluster_dict = {
+                'cluster_pts' : cluster,
+                'bdry_dist' : boundary_distance
+            }
+            dictionary_list.append(cluster_dict)
+        return dictionary_list
+        
+    else:
+        raise NotImplementedError("The function get_num_clusters currently only returns 1 or 2")
+
+def cluster_data(data, lower_bounds, upper_bounds, discontinuity_threshold=0.3, method='Gaussian', separate_two_points=False):
+    data = np.array(data)
+    if len(data) == 0:
+        raise Exception("Empty box")
+    
+    # If given a single point, return that point as a cluster
+    if len(data) == 1:
+        cluster_dict = {
+                'cluster_pts' : data,
+                'bdry_dist' : None
+            }
+        return [cluster_dict]
+    
+    # If given two points, return them as two distinct clusters
+    if len(data) == 2:
+        if separate_two_points: # if separate_two_points is True, return two clusters, one containing each point
+            dictionary_list = []
+            for i in range(2):
+                cluster_dict = {
+                    'cluster_pts' : np.array([data[i]]),
+                    'bdry_dist' : None
+                }
+                dictionary_list.append(cluster_dict)
+            return dictionary_list
+        else: # if separate_two_points is False, return a single cluster with both points
+            cluster_dict = {
+                'cluster_pts' : data,
+                'bdry_dist' : None
+            }
+        return [cluster_dict]
+    
+    else:
+        cylinder = Cylinder(lower_bounds, upper_bounds)
+        ratio, wrap_matrix, x_diff_matrix = death_time_ratio(data, cylinder)
+        num_clusters = get_num_clusters(ratio, discontinuity_threshold)
+        cluster_dictionary_list = get_cluster_data_dicts(data, num_clusters, wrap_matrix, x_diff_matrix, lower_bounds, upper_bounds, method)
+    return cluster_dictionary_list
+
+
+''' Analysis of f(X) over a space discretization '''
 class Boxes:
     # initialize a grid with a certain number of subdivisions to make rectangles
-    def __init__(self, lower_bounds, upper_bounds, num_subdivisions):
+    def __init__(self, lower_bounds, upper_bounds, num_subdivisions, phase_periodic=False):
+        self.lower_bounds = lower_bounds
+        self.upper_bounds = upper_bounds
+        self.cylinder = Cylinder(self.lower_bounds, self.upper_bounds)
+        self.phase_periodic = phase_periodic
         self.x_min = lower_bounds[0]
         self.x_max = upper_bounds[0]
         self.y_min = lower_bounds[1]
@@ -31,7 +256,6 @@ class Boxes:
             for j in range(num_subdivisions):
                 rect_y_min, rect_y_max = y_pairs[j]
                 self.rectangles.append(Rect(rect_x_min, rect_x_max, rect_y_min, rect_y_max))
-                #print(Rect(rect_x_min, rect_x_max, rect_y_min, rect_y_max))
 
     def make_data_dict(self, init_data, next_data):
         rect_dict = {}
@@ -40,35 +264,19 @@ class Boxes:
             for i, point in enumerate(init_data):
                 if rect.contains(point[0], point[1]):
                     rect_dict[rect].append(next_data[i])
-        # print the first element of the dictionary
-        #print(next(iter(rect_dict.values())))
         return rect_dict
-    
-    def do_persistence(self, data):
-        data_array = np.array(data)
-        # produce unique data_array
-        data_array_unique = np.unique(data_array, axis=0)
-
-        if len(data_array_unique) == 1:
-            print('unique data array flag')
-            return 0
-        
-        result = ripser(data_array, maxdim=0)
-        diagram = result['dgms'][0]
-
-        lengths = [death - birth for birth, death in diagram if death != np.inf]
-
-        max_num = max(lengths)
-        second_max = lengths[-2]
-
-        return second_max/max_num
     
     def make_persistence_dict(self, init_data, next_data):
         rect_dict = self.make_data_dict(init_data, next_data)
         pers_dict = {}
         for rect in rect_dict:
+            print('working on ', rect)
             if len(rect_dict[rect]) > 1: # if more than one data point, do persistence
-                pers_dict[rect] = self.do_persistence(rect_dict[rect])
+                pers_dict[rect], wrap_matrix, x_diff_matrix = death_time_ratio(rect_dict[rect], self.cylinder)
+                cluster_dicts = cluster_data(rect_dict[rect], self.lower_bounds, self.upper_bounds, discontinuity_threshold=0.3)
+                for cluster_dictionary in cluster_dicts:
+                    print(cluster_dictionary['bdry_dist'])
+
             else:
                 pers_dict[rect] = None
         return pers_dict
@@ -84,7 +292,7 @@ class Boxes:
                 linkage_dict[rect] = None
         return linkage_dict
     
-    
+
     # get the last height of every linkage for all the rectangles
     def get_last_height(self, init_data, next_data, method):
         linkage_dict = self.make_linkage(init_data, next_data, method)
@@ -103,11 +311,10 @@ class Boxes:
 
         if method == 'persistence':
             heights = self.make_persistence_dict(init_data, next_data)
-            # make title
             plt.title('Ratio of second largest to largest finite barcode length')
         else:
             heights = self.get_last_height(init_data, next_data, method)
-        # Filter out None values
+
         valid_heights = [h for h in heights.values() if h is not None]
         
         if not valid_heights:
@@ -115,23 +322,14 @@ class Boxes:
             return
 
         max_height = max(valid_heights)
-        # k = 0
         for rect, height in heights.items():
-            # if k % 2 == 0:
-            #     color = 'white'
-            # else:
-            #     color = 'black'
             if height is not None:
-                # make color grayscale color
                 color = plt.cm.viridis(height / max_height)
                 rect_patch = patches.Rectangle((rect.x_min, rect.y_min),
                                             rect.width, rect.height,
                                             color=color)
                 ax.add_patch(rect_patch)
-
-        # add colorbarx
         sm = plt.cm.ScalarMappable(cmap=plt.cm.viridis, norm=plt.Normalize(vmin=0, vmax=max_height))
-      #  sm = plt.cm.ScalarMappable(cmap=plt.cm.viridis, norm=plt.Normalize(vmin=0, vmax=max_height))
         plt.colorbar(sm)
         plt.show()
         plt.close()
@@ -149,14 +347,11 @@ class Rect:
         self.width = x_max - x_min
         self.height = y_max - y_min
 
-    # function for printing the rectangle
     def __repr__(self):
         return f"Rect({self.x_min}, {self.x_max}, {self.y_min}, {self.y_max})"
 
     def contains(self, x, y):
         return self.x_min <= x <= self.x_max and self.y_min <= y <= self.y_max
-    
-    # plot the square filled in a certain color
 
     def plot(self, color):
         fig, ax = plt.subplots()
@@ -164,10 +359,3 @@ class Rect:
                                        self.width, self.height,
                                        color=color)
         ax.add_patch(rect_patch)
-
-    # def plot(self, color):
-    #     plt.fill(
-    #         [self.x_min, self.x_max, self.x_max, self.x_min, self.x_min], 
-    #         [self.y_min, self.y_min, self.y_max, self.y_max, self.y_min], 
-    #         color
-    #     )
