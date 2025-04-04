@@ -1,5 +1,5 @@
 import numpy as np
-from src.grid import Boxes, cluster_data
+from HyHoDy.grid import Boxes, cluster_data
 import matplotlib.pyplot as plt
     
 init_data_file = 'data/vp_ic11all.dat'
@@ -40,19 +40,18 @@ plt.ylim(lower_bounds[1], upper_bounds[1])
 
 ''' Example 2: One cluster that crosses the periodic boundary '''
 
-for k in range(10):
-    a, b = 0.0, 0.25131417167160003
-    c, d = 1.1500000000000001, 1.2000000000000002
+a, b = 0.0, 0.25131417167160003
+c, d = 1.1500000000000001, 1.2000000000000002
 
-    filtered_Y = Y[(X[:, 0] >= a) & (X[:, 0] <= b) & (X[:, 1] >= c) & (X[:, 1] <= d)]
-    cluster_dicts = cluster_data(filtered_Y, lower_bounds, upper_bounds, discontinuity_threshold=0.2, method = 'Gaussian')
-    print('Number of clusters: ', len(cluster_dicts))
+filtered_Y = Y[(X[:, 0] >= a) & (X[:, 0] <= b) & (X[:, 1] >= c) & (X[:, 1] <= d)]
+cluster_dicts = cluster_data(filtered_Y, lower_bounds, upper_bounds, discontinuity_threshold=0.2, method = 'Gaussian')
+print('Number of clusters: ', len(cluster_dicts))
 
-    for cluster_dictionary in cluster_dicts:
-        print('Boundary distance: ', cluster_dictionary['bdry_dist'])
-        cluster_pts = np.array(cluster_dictionary['cluster_pts'])
-        plt.scatter(cluster_pts[:, 0], cluster_pts[:, 1], color = np.random.rand(3,))
-    plt.show()
+for cluster_dictionary in cluster_dicts:
+    print('Boundary distance: ', cluster_dictionary['bdry_dist'])
+    cluster_pts = np.array(cluster_dictionary['cluster_pts'])
+    plt.scatter(cluster_pts[:, 0], cluster_pts[:, 1], color = np.random.rand(3,))
+plt.show()
     
 ''' Example 3: Two clusters '''
 a, b = 0.753, 1.004
