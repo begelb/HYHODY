@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+import numpy as np
 
 def generate_contrast_colormap(n_colors=40, emphasize_first=5):
     colors = []
