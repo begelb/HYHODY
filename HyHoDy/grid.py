@@ -351,7 +351,7 @@ class Boxes:
 
         if method == 'persistence':
             heights = self.make_persistence_dict(init_data, next_data)
-            plt.title('Ratio of second largest to largest finite barcode length')
+            plt.title('Ratio of second largest to largest finite death time')
         else:
             heights = self.get_last_height(init_data, next_data, method)
 
@@ -370,7 +370,10 @@ class Boxes:
                                             color=color)
                 ax.add_patch(rect_patch)
         sm = plt.cm.ScalarMappable(cmap=plt.cm.viridis, norm=plt.Normalize(vmin=0, vmax=max_height))
-        plt.colorbar(sm)
+
+        sm.set_array([]) 
+        plt.colorbar(sm, ax=ax)
+
         plt.show()
         plt.close()
 
