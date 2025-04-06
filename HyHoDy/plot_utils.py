@@ -1,3 +1,6 @@
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+
 def generate_contrast_colormap(n_colors=40, emphasize_first=5):
     colors = []
     
@@ -35,11 +38,3 @@ def generate_contrast_colormap(n_colors=40, emphasize_first=5):
     hex_colors = [mcolors.to_hex(color) for color in colors]
     
     return hex_colors
-
-num_vertices = len(morse_graph.vertices())
-
-# generate a list of colors with higher contrast in the first emphasize_first elements
-color_list = generate_contrast_colormap(num_vertices, emphasize_first=5)
-
-# Manually specify the 38th color to be orange
-color_list[38] = '#FFA500'
