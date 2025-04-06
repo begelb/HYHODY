@@ -270,12 +270,12 @@ class Boxes:
         rect_dict = self.make_data_dict(init_data, next_data)
         pers_dict = {}
         for rect in rect_dict:
-            print('working on ', rect)
+          #  print('working on ', rect)
             if len(rect_dict[rect]) > 1: # if more than one data point, do persistence
                 pers_dict[rect], wrap_matrix, x_diff_matrix = death_time_ratio(rect_dict[rect], self.cylinder)
                 cluster_dicts = cluster_data(rect_dict[rect], self.lower_bounds, self.upper_bounds, discontinuity_threshold=0.3)
                 for cluster_dictionary in cluster_dicts:
-                    print(cluster_dictionary['bdry_dist'])
+                  #  print(cluster_dictionary['bdry_dist'])
 
             else:
                 pers_dict[rect] = None
