@@ -373,6 +373,8 @@ class Boxes:
 
         sm.set_array([]) 
         plt.colorbar(sm, ax=ax)
+        plt.xlabel(r'$\psi$ (phase)')
+        plt.ylabel(r'$\dot{Z}$ (velocity)')
 
         plt.show()
         plt.close()
