@@ -413,10 +413,9 @@ class Boxes:
             # Define fixed color mapping
             color_map = {1: '#332288', 2: '#DDCC77'}
 
-            # Create legend handles
             legend_handles = [
-                patches.Patch(color=color, label=f"{rtype} type" if rtype == 1 else f"{rtype} types")
-                for rtype, color in color_map.items()]
+                patches.Patch(color=color_map[1], label="1 type"),
+                patches.Patch(color=color_map[2], label="2 or 3 types")]
 
             # Add legend to the plot
             ax.legend(handles=legend_handles, loc='lower right')
