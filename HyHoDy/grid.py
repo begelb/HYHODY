@@ -396,7 +396,7 @@ class Boxes:
                 if height is not None:
                     if height == 1:
                         color = '#332288'
-                    elif height == 2:
+                    elif height == 2 or height == 3:
                         color = '#DDCC77'
                     rect_patch = patches.Rectangle((rect.x_min, rect.y_min),
                                                 rect.width, rect.height,
