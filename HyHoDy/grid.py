@@ -415,7 +415,7 @@ class Boxes:
                 for rtype, color in color_map.items()]
 
             # Add legend to the plot
-            ax.legend(handles=legend_handles, loc='upper right')
+            ax.legend(handles=legend_handles, loc='lower right')
         plt.xlabel(r'$\psi$ (phase)')
         plt.ylabel(r'$\dot{Z}$ (velocity)')
 
