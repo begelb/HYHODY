@@ -2,16 +2,34 @@ import numpy as np
 from HyHoDy.grid import Boxes, cluster_data
 import matplotlib.pyplot as plt
     
-init_data_file = 'data/vp_ic11all.dat'
-next_data_file = 'data/vp_next11all.dat'
+# init_data_file = 'data/vp_ic11all.dat'
+# next_data_file = 'data/vp_next11all.dat'
+
+init_data_file = 'data/vel_phase_ic.dat'
+next_data_file = 'data/vel_phase_next.dat'
 
 init_data = np.loadtxt(init_data_file)
 next_data = np.loadtxt(next_data_file)
 
+X2 = init_data[:, [0, 1]]
+Y2 = next_data[:, [0, 1]]
 
-lower_bounds = [0, 0]
-upper_bounds = [6.2828542917900005, 1.25]
-boxes = Boxes(lower_bounds, upper_bounds, 20, phase_periodic=True)
+# Mod the phase variable of X by 6.2828711
+X2[:, 0] = X2[:, 0] % (6.2828711)
+
+lower_bounds = [np.min(X2[:, 0]), np.min(X2[:,1])]
+upper_bounds = [np.max(X2[:,0]), np.max(X2[:,1])]
+
+# redefine init data
+init_data = np.column_stack((X2, init_data[:, 2]))
+
+# lower_bounds = [0, 0]
+# upper_bounds = [6.2828711, 1.25]
+
+boxes = Boxes(lower_bounds, upper_bounds, 40, phase_periodic=True)
+boxes.plot(init_data, next_data, method='return_type')
+
+exit()
 
 X = init_data[:, [0, 1]]
 Y = next_data[:, [0, 1]]

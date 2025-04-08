@@ -8,6 +8,7 @@ from sklearn.mixture import GaussianMixture
 from sklearn.metrics import silhouette_score
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+import matplotlib as mpl
 
 def generate_contrast_colormap(n_colors=40, emphasize_first=5):
     colors = []
@@ -321,6 +322,16 @@ class Boxes:
                 pers_dict[rect] = None
         return pers_dict
     
+    def make_return_type_dict(self, init_data, next_data):
+        rect_dict = self.make_data_dict(init_data, next_data)
+        return_type_dict = {}
+        for rect in rect_dict:
+            third_elements = [arr[2] for arr in rect_dict[rect]]
+            # number of unique third_elements
+            num_unique_returns = len(set(third_elements))
+            return_type_dict[rect] = num_unique_returns
+        return return_type_dict
+    
     # perform linkage(data, method='ward') on every rectangle
     def make_linkage(self, init_data, next_data, method):
         rect_dict = self.make_data_dict(init_data, next_data)
@@ -352,6 +363,11 @@ class Boxes:
         if method == 'persistence':
             heights = self.make_persistence_dict(init_data, next_data)
             plt.title('Ratio of second largest to largest finite death time')
+        
+        elif method == 'return_type':
+            heights = self.make_return_type_dict(init_data, next_data)
+            plt.title('Number of unique return types')
+
         else:
             heights = self.get_last_height(init_data, next_data, method)
 
@@ -361,18 +377,45 @@ class Boxes:
             print("No valid heights to plot.")
             return
 
-        max_height = max(valid_heights)
-        for rect, height in heights.items():
-            if height is not None:
-                color = plt.cm.viridis(height / max_height)
-                rect_patch = patches.Rectangle((rect.x_min, rect.y_min),
-                                            rect.width, rect.height,
-                                            color=color)
-                ax.add_patch(rect_patch)
-        sm = plt.cm.ScalarMappable(cmap=plt.cm.viridis, norm=plt.Normalize(vmin=0, vmax=max_height))
+        if method == 'persistence':
+            max_height = max(valid_heights)
+            for rect, height in heights.items():
+                if height is not None:
+                    color = plt.cm.viridis(height / max_height)
+                    rect_patch = patches.Rectangle((rect.x_min, rect.y_min),
+                                                rect.width, rect.height,
+                                                color=color)
+                    ax.add_patch(rect_patch)
 
-        sm.set_array([]) 
-        plt.colorbar(sm, ax=ax)
+        elif method == 'return_type':
+            for rect, height in heights.items():
+                if height is not None:
+                    if height == 1:
+                        color = '#332288'
+                    elif height == 2:
+                        color = '#DDCC77'
+                    rect_patch = patches.Rectangle((rect.x_min, rect.y_min),
+                                                rect.width, rect.height,
+                                                color=color)
+                    ax.add_patch(rect_patch)
+                else:
+                    print('height is None')
+
+        if method == 'persistence':
+            sm = plt.cm.ScalarMappable(cmap=plt.cm.viridis, norm=plt.Normalize(vmin=0, vmax=max_height))
+            sm.set_array([]) 
+            plt.colorbar(sm, ax=ax)
+        elif method == 'return_type':
+            # Define fixed color mapping
+            color_map = {1: '#332288', 2: '#DDCC77'}
+
+            # Create legend handles
+            legend_handles = [
+                patches.Patch(color=color, label=f"{rtype} type" if rtype == 1 else f"{rtype} types")
+                for rtype, color in color_map.items()]
+
+            # Add legend to the plot
+            ax.legend(handles=legend_handles, loc='upper right')
         plt.xlabel(r'$\psi$ (phase)')
         plt.ylabel(r'$\dot{Z}$ (velocity)')
 
