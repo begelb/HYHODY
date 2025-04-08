@@ -17,6 +17,11 @@ Y2 = next_data[:, [0, 1]]
 # Mod the phase variable of X by 6.2828711
 X2[:, 0] = X2[:, 0] % (6.2828711)
 
+# if value of the fourth column of init_data is > 2, then change the third column of Y2 to 3
+for i in range(len(init_data)):
+    if init_data[i, 3] > 2 and int(next_data[i, 2]) == 1:
+        next_data[i, 2] = 3
+
 lower_bounds = [np.min(X2[:, 0]), np.min(X2[:,1])]
 upper_bounds = [np.max(X2[:,0]), np.max(X2[:,1])]
 

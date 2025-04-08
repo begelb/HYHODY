@@ -355,8 +355,12 @@ class Boxes:
                 heights[rect] = None
         return heights
 
-    def plot(self, init_data, next_data, method):
-        fig, ax = plt.subplots()
+    def plot(self, init_data, next_data, method, width=6, height=4):
+        if method == 'persistence':
+            fig, ax = plt.subplots()
+        if method == 'return_type':
+            # set aspect ratio
+            fig, ax = plt.subplots(figsize=(width, height)) 
         ax.set_xlim(self.x_min, self.x_max)
         ax.set_ylim(self.y_min, self.y_max)
 
