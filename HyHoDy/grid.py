@@ -127,8 +127,13 @@ def get_Gaussian_mixture_labels(data, n_iterations=8):
     for i in range(n_iterations):
         gmm = GaussianMixture(n_components=2) 
         labels = gmm.fit_predict(data)
-        sil=silhouette_score(data, labels, metric='euclidean')
-       # print('silhouette score: ', sil)
+        num_labels = len(np.unique(labels))
+        if num_labels >= 2:
+            # silhouette score is only defined when there are at least 2 clusters
+            sil=silhouette_score(data, labels, metric='euclidean')
+        else:
+            # silhouette score ranges from -1 to 1, so if there is only one cluster, set sil to worst score
+            sil = -1
         if best_labels is None or sil > best_silhouette:
             best_labels = labels
             best_silhouette = sil
@@ -210,19 +215,22 @@ def get_cluster_data_dicts(data, num_clusters, wrap_matrix, x_diff_matrix, lower
 
         dictionary_list = []
         for i, cluster in enumerate(clusters):
-            cluster_wrap_matrix = get_submatrix(cluster_labels, id=i, matrix=wrap_matrix)
-           # cluster_x_diff_matrix = get_submatrix(cluster_labels, id=i, matrix=x_diff_matrix)
-            if np.any(cluster_wrap_matrix.flatten()):
-                boundary_distance = get_boundary_distances(data, cylinder)
+            if len(cluster) == 0:
+                print('Warning: The threshold used to detect discontinuity and the persistent homology calculation suggested the existence of two clusters, but only one cluster was identified.')
             else:
-                boundary_distance = None
+                cluster_wrap_matrix = get_submatrix(cluster_labels, id=i, matrix=wrap_matrix)
+            # cluster_x_diff_matrix = get_submatrix(cluster_labels, id=i, matrix=x_diff_matrix)
+                if np.any(cluster_wrap_matrix.flatten()):
+                    boundary_distance = get_boundary_distances(data, cylinder)
+                else:
+                    boundary_distance = None
 
-            cluster_dict = {
-                'cluster_pts' : cluster,
-                'bdry_dist' : boundary_distance
-            }
-            dictionary_list.append(cluster_dict)
-        return dictionary_list
+                cluster_dict = {
+                    'cluster_pts' : cluster,
+                    'bdry_dist' : boundary_distance
+                }
+                dictionary_list.append(cluster_dict)
+            return dictionary_list
         
     else:
         raise NotImplementedError("The function get_num_clusters currently only returns 1 or 2")
